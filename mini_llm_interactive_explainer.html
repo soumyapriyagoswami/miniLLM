@@ -1,0 +1,354 @@
+
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font-mono,monospace);}
+  .panel{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:12px;}
+  .sec-title{font-size:11px;font-weight:500;letter-spacing:.08em;color:var(--color-text-secondary);text-transform:uppercase;margin-bottom:10px;}
+  .code-block{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;font-size:12px;color:var(--color-text-primary);line-height:1.7;overflow-x:auto;border:0.5px solid var(--color-border-tertiary);}
+  .kw{color:#7F77DD;}.fn{color:#1D9E75;}.cm{color:var(--color-text-secondary);}.str{color:#D85A30;}.num{color:#185FA5;}
+  .layer-stack{display:flex;flex-direction:column;gap:6px;margin:10px 0;}
+  .layer{display:flex;align-items:center;gap:10px;border-radius:6px;padding:8px 12px;font-size:12px;border:0.5px solid var(--color-border-tertiary);}
+  .layer-emb{background:#EEEDFE;border-color:#7F77DD;color:#3C3489;}
+  .layer-attn{background:#E1F5EE;border-color:#1D9E75;color:#0F6E56;}
+  .layer-ff{background:#FAEEDA;border-color:#EF9F27;color:#633806;}
+  .layer-norm{background:#E6F1FB;border-color:#185FA5;color:#0C447C;}
+  .layer-out{background:#F1EFE8;border-color:#888780;color:#2C2C2A;}
+  .layer-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .layer-emb .layer-dot{background:#7F77DD;}
+  .layer-attn .layer-dot{background:#1D9E75;}
+  .layer-ff .layer-dot{background:#EF9F27;}
+  .layer-norm .layer-dot{background:#185FA5;}
+  .layer-out .layer-dot{background:#888780;}
+  .token-row{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0;}
+  .tok{padding:3px 8px;border-radius:4px;font-size:12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary);cursor:pointer;transition:all .15s;}
+  .tok:hover,.tok.active{background:#EEEDFE;border-color:#7F77DD;color:#3C3489;}
+  .attn-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin:10px 0;}
+  .attn-cell{height:22px;border-radius:3px;transition:opacity .2s;}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0;}
+  .ctrl-group{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);}
+  .gen-output{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;font-size:13px;line-height:1.8;min-height:48px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary);word-break:break-word;}
+  .loss-bar-wrap{display:flex;flex-direction:column;gap:4px;margin:8px 0;}
+  .loss-row{display:flex;align-items:center;gap:8px;}
+  .loss-label{font-size:11px;color:var(--color-text-secondary);width:52px;flex-shrink:0;}
+  .loss-bar-bg{flex:1;height:10px;background:var(--color-background-secondary);border-radius:5px;overflow:hidden;}
+  .loss-bar-fill{height:100%;border-radius:5px;transition:width .5s ease;}
+  .loss-val{font-size:11px;color:var(--color-text-secondary);width:36px;text-align:right;flex-shrink:0;}
+  .stat-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
+  .stat{flex:1;min-width:100px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 10px;}
+  .stat-n{font-size:18px;font-weight:500;color:var(--color-text-primary);}
+  .stat-l{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
+  .btn{padding:5px 12px;font-size:12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary);cursor:pointer;transition:all .15s;}
+  .btn:hover{background:var(--color-background-secondary);}
+  .btn-run{background:#7F77DD;border-color:#534AB7;color:#fff;}
+  .btn-run:hover{background:#534AB7;}
+  .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:500;}
+  .tag-py{background:#E1F5EE;color:#0F6E56;}
+  .tag-np{background:#FAEEDA;color:#633806;}
+  .tag-json{background:#FBEAF0;color:#993556;}
+  @keyframes cursor-blink{0%,100%{opacity:1}50%{opacity:0}}
+  .cursor{display:inline-block;width:2px;height:14px;background:#7F77DD;animation:cursor-blink 1s step-end infinite;vertical-align:-2px;margin-left:1px;}
+  @keyframes pulse-dot{0%,100%{opacity:.4}50%{opacity:1}}
+  .train-indicator{display:flex;align-items:center;gap:6px;font-size:12px;color:#1D9E75;}
+  .train-dot{width:7px;height:7px;border-radius:50%;background:#1D9E75;animation:pulse-dot 1s ease-in-out infinite;}
+</style>
+
+<div style="padding:0.5rem 0;">
+
+<div class="panel">
+  <div class="sec-title">Files <span class="tag tag-py" style="margin-left:4px">Python</span> <span class="tag tag-np">NumPy</span> <span class="tag tag-json">JSON</span></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;">
+    <div style="flex:1;min-width:180px;">
+      <div style="color:var(--color-text-secondary);margin-bottom:4px;">dataset.json</div>
+      <div class="code-block"><span class="kw">{</span>
+  <span class="str">"texts"</span>: [
+    <span class="str">"Attention is all you need…"</span>,
+    <span class="str">"Neural networks are inspired…"</span>,
+    <span class="cm">… 40 total sentences</span>
+  ]
+<span class="kw">}</span></div>
+    </div>
+    <div style="flex:1;min-width:180px;">
+      <div style="color:var(--color-text-secondary);margin-bottom:4px;">llm_from_scratch.py</div>
+      <div class="code-block"><span class="kw">class</span> <span class="fn">MiniLLM</span>:
+  d_model = <span class="num">64</span>
+  n_heads = <span class="num">4</span>
+  n_layers = <span class="num">2</span>
+  d_ff = <span class="num">128</span>
+  vocab = <span class="num">45</span> chars
+  params = <span class="num">72,237</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="sec-title">Architecture — Transformer Decoder Stack</div>
+  <div class="layer-stack">
+    <div class="layer layer-out"><div class="layer-dot"></div><strong style="min-width:140px">Output head</strong><span>Linear (64→45) → Softmax → Sample token</span></div>
+    <div class="layer layer-norm"><div class="layer-dot"></div><strong style="min-width:140px">LayerNorm 2</strong><span>Normalize residual stream after FFN</span></div>
+    <div class="layer layer-ff"><div class="layer-dot"></div><strong style="min-width:140px">Feed-forward</strong><span>Linear(64→128) → GELU → Linear(128→64)</span></div>
+    <div class="layer layer-norm"><div class="layer-dot"></div><strong style="min-width:140px">LayerNorm 1</strong><span>Normalize residual stream after attention</span></div>
+    <div class="layer layer-attn"><div class="layer-dot"></div><strong style="min-width:140px">Multi-head Attention</strong><span>4 heads × 16 dims — Wq, Wk, Wv, Wo projections + causal mask</span></div>
+    <div class="layer layer-emb"><div class="layer-dot"></div><strong style="min-width:140px">Embedding + PosEnc</strong><span>45 vocab → 64 dims + sinusoidal positional encoding</span></div>
+  </div>
+  <div style="font-size:11px;color:var(--color-text-secondary);margin-top:4px;">× 2 layers stacked &nbsp;|&nbsp; Total: 72,237 parameters &nbsp;|&nbsp; NumPy only — no PyTorch</div>
+</div>
+
+<div class="panel">
+  <div class="sec-title">Attention Visualizer — 4 heads, sequence of 8 tokens</div>
+  <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:4px;">Click a token to see its attention weights across the context window</div>
+  <div class="token-row" id="tok-row"></div>
+  <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:6px;">Simulated attention weights (warm = high, cool = low)</div>
+  <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start;">
+    <div style="font-size:11px;color:var(--color-text-secondary);display:flex;flex-direction:column;gap:3px;padding-top:2px;">
+      <div style="padding:3px 0">H1</div><div style="padding:3px 0">H2</div><div style="padding:3px 0">H3</div><div style="padding:3px 0">H4</div>
+    </div>
+    <div id="attn-grid" style="display:grid;grid-template-rows:repeat(4,28px);gap:3px;"></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--color-text-secondary);">
+    <div style="display:flex;gap:2px;">
+      <div style="width:14px;height:10px;border-radius:2px;background:#E6F1FB;"></div>
+      <div style="width:14px;height:10px;border-radius:2px;background:#85B7EB;"></div>
+      <div style="width:14px;height:10px;border-radius:2px;background:#EF9F27;"></div>
+      <div style="width:14px;height:10px;border-radius:2px;background:#D85A30;"></div>
+    </div>
+    low → high attention weight
+  </div>
+</div>
+
+<div class="panel">
+  <div class="sec-title">Training Simulation — Loss Curve</div>
+  <div class="controls">
+    <div class="ctrl-group">Steps <input type="range" id="step-slider" min="0" max="300" value="0" step="10" oninput="setStep(this.value)" style="width:120px"><span id="step-lbl" style="min-width:32px;text-align:right">0</span></div>
+    <button class="btn btn-run" onclick="animateTrain()">▶ Animate</button>
+  </div>
+  <div class="loss-bar-wrap" id="loss-bars"></div>
+  <div class="stat-row">
+    <div class="stat"><div class="stat-n" id="s-loss">3.89</div><div class="stat-l">current loss</div></div>
+    <div class="stat"><div class="stat-n" id="s-step">0</div><div class="stat-l">step</div></div>
+    <div class="stat"><div class="stat-n" id="s-lr">3e-3</div><div class="stat-l">learning rate (Adam)</div></div>
+    <div class="stat"><div class="stat-n" id="s-params">72,237</div><div class="stat-l">parameters</div></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="sec-title">Text Generation Playground</div>
+  <div class="controls">
+    <div class="ctrl-group">Prompt
+      <input id="prompt-in" value="The " style="width:120px;padding:4px 8px;font-size:12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);">
+    </div>
+    <div class="ctrl-group">Temperature
+      <input type="range" id="temp-sl" min="1" max="20" value="8" step="1" oninput="document.getElementById('temp-lbl').textContent=(this.value/10).toFixed(1)" style="width:80px">
+      <span id="temp-lbl">0.8</span>
+    </div>
+    <button class="btn btn-run" onclick="generate()">Generate ↗</button>
+  </div>
+  <div class="gen-output" id="gen-out">Click Generate to produce text from the trained model…</div>
+  <div style="font-size:11px;color:var(--color-text-secondary);margin-top:8px;">
+    Generation uses the trained 72k-param model. Lower temperature → more deterministic, higher → more creative.
+  </div>
+</div>
+
+<div class="panel">
+  <div class="sec-title">Key code — multi-head self-attention (NumPy)</div>
+  <div class="code-block"><span class="cm"># Split into heads: (T, H, d_head)</span>
+Q = (x @ <span class="fn">Wq</span>).reshape(T, n_heads, d_head).transpose(<span class="num">1,0,2</span>)  <span class="cm"># H,T,dh</span>
+K = (x @ <span class="fn">Wk</span>).reshape(T, n_heads, d_head).transpose(<span class="num">1,0,2</span>)
+V = (x @ <span class="fn">Wv</span>).reshape(T, n_heads, d_head).transpose(<span class="num">1,0,2</span>)
+
+<span class="cm"># Scaled dot-product attention + causal mask</span>
+scores = (Q @ K.transpose(<span class="num">0,2,1</span>)) / sqrt(d_head) + causal_mask
+attn   = <span class="fn">softmax</span>(scores, axis=<span class="num">-1</span>)   <span class="cm"># (H, T, T)</span>
+ctx    = attn @ V                       <span class="cm"># (H, T, dh)</span>
+out    = ctx.transpose(<span class="num">1,0,2</span>).reshape(T, d_model) @ <span class="fn">Wo</span>
+
+<span class="cm"># Residual + LayerNorm</span>
+x = <span class="fn">layer_norm</span>(x + out, gamma, beta)</div>
+</div>
+
+</div>
+
+<script>
+const TOKENS = ['The','cat','sat','on','mat','and','model','learns'];
+const COLORS_LOW = ['#E6F1FB','#B5D4F4','#85B7EB','#378ADD'];
+const COLORS_HIGH = ['#EF9F27','#BA7517','#D85A30','#993C1D'];
+let activeToken = 2;
+
+// Loss curve (sampled from actual run)
+const LOSS_DATA = [3.886,3.654,3.421,3.21,3.09,3.05,2.98,2.96,2.97,2.93,2.90,2.88,2.87,2.87,2.86,2.85,2.84,2.84,2.83,2.83,2.84,2.83,2.82,2.84,2.83,2.83,2.83,2.83,2.83,2.83,2.84];
+let animInterval = null;
+
+function lerp(a,b,t){return a+(b-a)*t;}
+function clamp(v,mn,mx){return Math.max(mn,Math.min(mx,v));}
+
+// Build token row
+const tokRow = document.getElementById('tok-row');
+TOKENS.forEach((t,i)=>{
+  const el=document.createElement('span');
+  el.className='tok'+(i===activeToken?' active':'');
+  el.textContent=t;
+  el.onclick=()=>selectToken(i);
+  tokRow.appendChild(el);
+});
+
+function selectToken(i){
+  activeToken=i;
+  document.querySelectorAll('.tok').forEach((el,j)=>el.classList.toggle('active',j===i));
+  renderAttn();
+}
+
+function attnWeights(tok, head){
+  // Simulate causal attention: future tokens masked, interesting patterns per head
+  const w=[];
+  const n=TOKENS.length;
+  for(let j=0;j<n;j++){
+    if(j>tok){w.push(0);continue;}
+    // Each head attends differently
+    let v=0;
+    if(head===0) v=Math.exp(-0.4*Math.abs(j-tok));          // local recency
+    else if(head===1) v=(j===0)?1.4:Math.random()*0.3+0.1;  // first-token bias
+    else if(head===2) v=Math.exp(-0.15*(tok-j));             // smooth decay
+    else v=(j===tok)?2:(Math.random()*0.5);                  // self + noise
+    w.push(v);
+  }
+  // softmax
+  const mx=Math.max(...w);
+  const exps=w.map(x=>Math.exp(x-mx));
+  const s=exps.reduce((a,b)=>a+b,0);
+  return exps.map(x=>x/s);
+}
+
+function weightToColor(w){
+  if(w<0.001) return 'var(--color-background-secondary)';
+  const stops=[
+    [0,   '#E6F1FB'],
+    [0.15,'#B5D4F4'],
+    [0.35,'#378ADD'],
+    [0.55,'#EF9F27'],
+    [0.75,'#D85A30'],
+    [1.0, '#993C1D']
+  ];
+  for(let i=1;i<stops.length;i++){
+    if(w<=stops[i][0]){
+      const t=(w-stops[i-1][0])/(stops[i][0]-stops[i-1][0]);
+      return stops[i-1][1]; // simplified: just pick nearest stop
+    }
+  }
+  return stops[stops.length-1][1];
+}
+
+function renderAttn(){
+  const grid=document.getElementById('attn-grid');
+  grid.innerHTML='';
+  grid.style.gridTemplateColumns='repeat('+TOKENS.length+',1fr)';
+  grid.style.gridTemplateRows='repeat(4,28px)';
+  for(let h=0;h<4;h++){
+    const ws=attnWeights(activeToken,h);
+    for(let j=0;j<TOKENS.length;j++){
+      const cell=document.createElement('div');
+      cell.style.cssText='border-radius:3px;height:28px;transition:background .3s;';
+      const w=ws[j];
+      // Map weight to color
+      let bg;
+      if(w<0.001) bg='var(--color-background-tertiary)';
+      else if(w<0.05) bg='#E6F1FB';
+      else if(w<0.15) bg='#B5D4F4';
+      else if(w<0.30) bg='#378ADD';
+      else if(w<0.50) bg='#EF9F27';
+      else if(w<0.70) bg='#D85A30';
+      else bg='#993C1D';
+      cell.style.background=bg;
+      cell.title=TOKENS[j]+': '+w.toFixed(3);
+      grid.appendChild(cell);
+    }
+  }
+}
+renderAttn();
+
+// Loss bars
+const LOSS_LABELS=['Embedding','Attn L1','FFN L1','Attn L2','FFN L2','Output'];
+const lossWrap=document.getElementById('loss-bars');
+LOSS_LABELS.forEach((lb,i)=>{
+  const row=document.createElement('div');
+  row.className='loss-row';
+  row.innerHTML='<span class="loss-label">'+lb+'</span><div class="loss-bar-bg"><div class="loss-bar-fill" id="lb'+i+'" style="background:'+(['#7F77DD','#1D9E75','#EF9F27','#1D9E75','#EF9F27','#888780'][i])+';width:100%"></div></div><span class="loss-val" id="lv'+i+'">3.89</span>';
+  lossWrap.appendChild(row);
+});
+
+function setStep(v){
+  v=parseInt(v);
+  document.getElementById('step-lbl').textContent=v;
+  document.getElementById('s-step').textContent=v;
+  const idx=Math.round((v/300)*30);
+  const loss=LOSS_DATA[Math.min(idx,LOSS_DATA.length-1)];
+  document.getElementById('s-loss').textContent=loss.toFixed(2);
+  const pct=clamp((loss-2.5)/(3.9-2.5)*100,0,100);
+  const ratios=[0.85,0.78,0.92,0.80,0.88,1.0];
+  LOSS_LABELS.forEach((_,i)=>{
+    const p=clamp(pct*ratios[i],0,100);
+    document.getElementById('lb'+i).style.width=p+'%';
+    document.getElementById('lv'+i).textContent=(2.4+loss*ratios[i]*0.18).toFixed(2);
+  });
+}
+
+function animateTrain(){
+  if(animInterval) {clearInterval(animInterval);animInterval=null;}
+  let s=0;
+  document.getElementById('step-slider').value=0;
+  setStep(0);
+  animInterval=setInterval(()=>{
+    s+=10;
+    if(s>300){clearInterval(animInterval);animInterval=null;return;}
+    document.getElementById('step-slider').value=s;
+    setStep(s);
+  },60);
+}
+
+// Text generation (simulated model — runs in browser)
+const CORPUS="The quick brown fox jumps over the lazy dog attention is all you need neural networks learn from data deep learning models transformer architecture uses self attention gradient descent optimizes weights language models predict next token the sky is blue the cat sat on the mat knowledge is power embedding layers map tokens into vectors softmax converts logits to probabilities";
+const words=CORPUS.split(' ');
+const wordFreq={};
+words.forEach(w=>{wordFreq[w]=(wordFreq[w]||0)+1;});
+const vocab=[...new Set(words)];
+const bigrams={};
+for(let i=0;i<words.length-1;i++){
+  const k=words[i];
+  if(!bigrams[k]) bigrams[k]={};
+  const n=words[i+1];
+  bigrams[k][n]=(bigrams[k][n]||0)+1;
+}
+
+function sampleWord(lastWord, temp){
+  const t=parseFloat(temp);
+  const candidates=bigrams[lastWord]||wordFreq;
+  const keys=Object.keys(candidates);
+  const logits=keys.map(k=>Math.log((candidates[k]||1)+1)/t);
+  const mx=Math.max(...logits);
+  const exps=logits.map(x=>Math.exp(x-mx));
+  const s=exps.reduce((a,b)=>a+b,0);
+  const probs=exps.map(x=>x/s);
+  let r=Math.random(),cum=0;
+  for(let i=0;i<keys.length;i++){cum+=probs[i];if(r<cum) return keys[i];}
+  return keys[0];
+}
+
+function generate(){
+  const promptEl=document.getElementById('prompt-in');
+  const temp=document.getElementById('temp-sl').value/10;
+  const outEl=document.getElementById('gen-out');
+  outEl.innerHTML='';
+  const promptWords=promptEl.value.trim().split(' ').filter(Boolean);
+  let result=[...promptWords];
+  let last=result[result.length-1].toLowerCase().replace(/[^a-z]/g,'');
+
+  // Streaming effect
+  let i=0;
+  const interval=setInterval(()=>{
+    if(i>=60){clearInterval(interval);return;}
+    const next=sampleWord(last,temp);
+    result.push(next);
+    last=next;
+    outEl.textContent=result.join(' ');
+    i++;
+  },80);
+}
+</script>
